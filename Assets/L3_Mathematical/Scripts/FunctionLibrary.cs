@@ -11,6 +11,25 @@ public static class FunctionLibrary {
         return functions[(int)name];
     }
 
+    public static FunctionName GetFunctionName(FunctionName name){
+        if ((int)name < functions.Length - 1)
+        {
+            return name + 1;
+        }else{
+            return 0;
+        }
+    }
+
+    public static FunctionName GetRandomFunctionNameOtherThan(FunctionName name){
+        var choice = (FunctionName)Random.Range(1 , functions.Length);
+        return choice == name ? 0 : choice;
+    }
+
+    public static Vector3 Morph(float u, float v, float t, Function from, Function to, float progress){
+        // return Vector3.Lerp(from(u, v, t), to(u, v, t), progress);
+        return Vector3.LerpUnclamped(from(u, v, t), to(u, v, t), SmoothStep(0f, 1f, progress));
+    }
+
     public static Vector3 Wave(float u, float v, float t)
     {
         Vector3 p;
