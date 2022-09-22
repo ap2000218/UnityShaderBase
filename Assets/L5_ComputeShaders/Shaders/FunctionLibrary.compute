@@ -1,6 +1,46 @@
-#pragma kernel FunctionKernel
+#pragma kernel WaveKernel
+#pragma kernel WaveToMultiWaveKernel
+#pragma kernel WaveToRippleKernel
+#pragma kernel WaveToSphereKernel
+#pragma kernel WaveToVarySphereKernel
+#pragma kernel WaveToTorusKernel
 
-float _Step, _Time;
+#pragma kernel MultiWaveToWaveKernel
+#pragma kernel MultiWaveKernel
+#pragma kernel MultiWaveToRippleKernel
+#pragma kernel MultiWaveToSphereKernel
+#pragma kernel MultiWaveToVarySphereKernel
+#pragma kernel MultiWaveToTorusKernel
+
+#pragma kernel RippleToWaveKernel
+#pragma kernel RippleToMultiWaveKernel
+#pragma kernel RippleKernel
+#pragma kernel RippleToSphereKernel
+#pragma kernel RippleToVarySphereKernel
+#pragma kernel RippleToTorusKernel
+
+#pragma kernel SphereToWaveKernel
+#pragma kernel SphereToMultiWaveKernel
+#pragma kernel SphereToRippleKernel
+#pragma kernel SphereKernel
+#pragma kernel SphereToVarySphereKernel
+#pragma kernel SphereToTorusKernel
+
+#pragma kernel VarySphereToWaveKernel
+#pragma kernel VarySphereToMultiWaveKernel
+#pragma kernel VarySphereToRippleKernel
+#pragma kernel VarySphereToSphereKernel
+#pragma kernel VarySphereKernel
+#pragma kernel VarySphereToTorusKernel
+
+#pragma kernel TorusToWaveKernel
+#pragma kernel TorusToMultiWaveKernel
+#pragma kernel TorusToRippleKernel
+#pragma kernel TorusToSphereKernel
+#pragma kernel TorusToVarySphereKernel
+#pragma kernel TorusKernel
+
+float _Step, _Time, _TransitionProgress;
 uint _Resolution;
 RWStructuredBuffer<float3> _Positions;
 
@@ -25,8 +65,115 @@ float3 Wave(float u, float v, float t)
     return  p;
 }
 
-[numthreads(8, 8, 1)]
-void FunctionKernel(uint3 id:SV_DispatchThreadID){
-    float2 uv = GetUV(id);
-    SetPosition(id, Wave(uv.x, uv.y, _Time));
+float3 MultiWave (float u, float v, float t) {
+    float3 p;
+    p.x = u;
+    float y = sin(PI * (u + t));
+    y += 0.5 * sin(2.0 * PI * (v + t));
+    y += sin(PI * (u + v + 0.25 * t));
+    p.y = y * (1.0 / 2.5);
+    p.z = v;
+    return p;
 }
+
+float3 Ripple(float u, float v, float t){
+    float3 p;
+    p.x = u;
+    float d = sqrt(u * u + v * v);
+    float y = sin(PI * (4.0 * d - t));
+    p.y = y / (1.0 + 10.0 * d);
+    p.z = v;
+    return p;
+}
+
+float3 Sphere(float u, float v, float t){
+    float3 p;
+    float r = 0.5 + 0.5 * sin(PI * t);
+    float s = r * cos(0.5 * PI * v);
+    p.x = s * sin(PI * u);
+    p.y = r * sin(PI * 0.5 * v);
+    p.z = s * cos(PI * u);
+    return p;
+}
+
+float3 VarySphere(float u, float v, float t){
+    float3 p;
+    float r = 0.9 + 0.1 * sin(PI * (12.0 * u + 8.0 * v + t));
+    float s = r * cos(0.5 * PI * v);
+    p.x = s * sin(PI * u);
+    p.y = r * sin(PI * 0.5 * v);
+    p.z = s * cos(PI * u);
+    return p;
+}
+
+float3 Torus(float u, float v, float t){
+    float r1 = 0.7 + 0.1 * sin(PI * (6.0 * u + 0.5 * t));
+    float r2 = 0.15 + 0.05 * sin(PI * (8.0 * u + 4.0 * v + 2.0 * t));
+    float s = r1 + r2 * cos(PI * v);
+    float3 p;
+    p.x = s * sin(PI * u);
+    p.y = r2 * sin(PI * v);
+    p.z = s * cos(PI * u);
+    return p;
+}
+
+#define KERNEL_FUNCTION(function) \
+    [numthreads(8, 8, 1)] \
+    void function##Kernel(uint3 id:SV_DispatchThreadID){ \
+        float2 uv = GetUV(id); \
+        SetPosition(id, function(uv.x, uv.y, _Time)); \
+    }
+
+#define KERNEL_MORPH_FUNCTION(functionA, functionB) \
+    [numthreads(8, 8, 1)] \
+	void functionA##To##functionB##Kernel (uint3 id: SV_DispatchThreadID) { \
+		float2 uv = GetUV(id); \
+		float3 position = lerp( \
+			functionA(uv.x, uv.y, _Time), functionB(uv.x, uv.y, _Time), \
+			_TransitionProgress \
+		); \
+		SetPosition(id, position); \
+	}
+
+KERNEL_FUNCTION(Wave)
+KERNEL_FUNCTION(MultiWave)
+KERNEL_FUNCTION(Ripple)
+KERNEL_FUNCTION(Sphere)
+KERNEL_FUNCTION(VarySphere)
+KERNEL_FUNCTION(Torus)
+
+KERNEL_MORPH_FUNCTION(Wave, MultiWave)
+KERNEL_MORPH_FUNCTION(Wave, Ripple)
+KERNEL_MORPH_FUNCTION(Wave, Sphere)
+KERNEL_MORPH_FUNCTION(Wave, VarySphere)
+KERNEL_MORPH_FUNCTION(Wave, Torus)
+
+KERNEL_MORPH_FUNCTION(MultiWave, Wave)
+KERNEL_MORPH_FUNCTION(MultiWave, Ripple)
+KERNEL_MORPH_FUNCTION(MultiWave, Sphere)
+KERNEL_MORPH_FUNCTION(MultiWave, VarySphere)
+KERNEL_MORPH_FUNCTION(MultiWave, Torus)
+
+KERNEL_MORPH_FUNCTION(Ripple, Wave)
+KERNEL_MORPH_FUNCTION(Ripple, MultiWave)
+KERNEL_MORPH_FUNCTION(Ripple, Sphere)
+KERNEL_MORPH_FUNCTION(Ripple, VarySphere)
+KERNEL_MORPH_FUNCTION(Ripple, Torus)
+
+KERNEL_MORPH_FUNCTION(Sphere, Wave)
+KERNEL_MORPH_FUNCTION(Sphere, MultiWave)
+KERNEL_MORPH_FUNCTION(Sphere, Ripple)
+KERNEL_MORPH_FUNCTION(Sphere, VarySphere)
+KERNEL_MORPH_FUNCTION(Sphere, Torus)
+
+KERNEL_MORPH_FUNCTION(VarySphere, Wave)
+KERNEL_MORPH_FUNCTION(VarySphere, MultiWave)
+KERNEL_MORPH_FUNCTION(VarySphere, Ripple)
+KERNEL_MORPH_FUNCTION(VarySphere, Sphere)
+KERNEL_MORPH_FUNCTION(VarySphere, Torus)
+
+KERNEL_MORPH_FUNCTION(Torus, Wave)
+KERNEL_MORPH_FUNCTION(Torus, MultiWave)
+KERNEL_MORPH_FUNCTION(Torus, Ripple)
+KERNEL_MORPH_FUNCTION(Torus, Sphere)
+KERNEL_MORPH_FUNCTION(Torus, VarySphere)

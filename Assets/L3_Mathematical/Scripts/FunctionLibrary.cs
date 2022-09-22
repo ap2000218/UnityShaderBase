@@ -6,7 +6,7 @@ public static class FunctionLibrary {
     public delegate Vector3 Function(float u, float v, float t);
     static Function[] functions = {Wave, MultiWave, Ripple, Sphere, VarySphere, Torus};
     public enum FunctionName {Wave, MultiWave, Ripple, Sphere, VarySphere, Torus};
-
+    public static int FunctionCount => functions.Length;
     public static Function GetFunction(FunctionName name){
         return functions[(int)name];
     }
